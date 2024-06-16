@@ -5,8 +5,9 @@ import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Collectors;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.zip.CRC32;
 
 public class Sender {
@@ -20,8 +21,6 @@ public class Sender {
     private static InetAddress address;
     private static int port;
     private static String filename;
-
-    static Map<Integer, Integer> acksDuplicados = new HashMap<>();
 
     static DatagramSocket socket;
 
@@ -145,9 +144,6 @@ public class Sender {
 
                     sendPacket(packetInfo);
                     response = receivePacket();
-
-                    checkDuplicatedAck(response, packetInfo.getSeq());
-
                     acksReceived.add("recebe response: " + response.getMessage() + ":" + response.getSeq());
 
                     listIterator++;
@@ -162,15 +158,24 @@ public class Sender {
                 quantPacketSend++;
             }
 
-            String finalServerResponse = response.getMessage().trim();
+            /*
+             * Desconfio que isso não seja necessário pro nosso trabalho, comentando pra
+             * checar depois
+             */
+            /*
+             * mas a lógica dependia de ACKs duplicados, que não está no nosso escopo de
+             * trabalho
+             */
+            // String finalServerResponse = response.getMessage().trim();
 
-            if (packetInfo.isFinalPacket()) {
-                while (!finalServerResponse.equals("FINISHED")) {
-                    System.out.println("Pacotes faltando, entrando em contato com o servidor para verificar...");
+            // if (packetInfo.isFinalPacket()) {
+            // while (!finalServerResponse.equals("FINISHED")) {
+            // System.out.println("Pacotes faltando, entrando em contato com o servidor para
+            // verificar...");
 
-                    finalServerResponse = sendLastMissingPackets();
-                }
-            }
+            // finalServerResponse = sendLastMissingPackets();
+            // }
+            // }
 
         } catch (SocketTimeoutException ex) {
 
@@ -183,176 +188,9 @@ public class Sender {
             System.out.println("Timeout");
             System.out.println("Reenviando pacote...");
 
-            acksDuplicados.clear();
             initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
 
         }
-    }
-
-    public static void checkDuplicatedAck(PacketResponse response, int seqSent) throws Exception {
-        System.out.println("ACK duplicado, problema detectado...");
-        if (seqSent != response.getSeq() - 1) {
-
-            int duplicado = response.getSeq();
-
-            if (!acksDuplicados.containsKey(duplicado)) {
-                acksDuplicados.put(duplicado, 1);
-            } else {
-                acksDuplicados.put(duplicado, acksDuplicados.get(duplicado) + 1);
-            }
-
-            List<Integer> packetsLostSeqNumber = acksDuplicados.entrySet().stream()
-                    // se ja tiver 3 ou mais acks na lista...
-                    .filter(x -> x.getValue() >= 3)
-                    // pega a key (seq do pacote perdido)...
-                    .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
-
-            if (!packetsLostSeqNumber.isEmpty()) {
-                // value aqui é o seq do pacote perdido
-                for (int seq : packetsLostSeqNumber) {
-                    PacketInfo packet = packets
-                            .stream()
-                            .filter(x -> x.getSeq() == seq)
-                            .findFirst()
-                            .orElseThrow(() -> new Exception("Nao foi encontrado o pacote que falhou no envio"));
-
-                    // UTILIZADO APENAS PARA DADOS MOCKADOS
-                    if (packet == null) {
-                        if (seq == 4) {
-                            packet = new PacketInfo(new byte[] { 4, 4, 4, 4 }, 123453252, seq);
-                        }
-
-                        if (seq == 5) {
-                            packet = new PacketInfo(new byte[] { 5, 5, 5, 5 }, 123453252, seq);
-                        }
-
-                        if (seq == 6) {
-                            packet = new PacketInfo(new byte[] { 6, 6, 6, 6 }, 123453252, seq);
-                        }
-
-                        if (seq == 7) {
-                            packet = new PacketInfo(new byte[] { 7, 7, 7, 7 }, 123453252, seq);
-                        }
-
-                        if (seq == 11) {
-                            packet = new PacketInfo(new byte[] { 11, 11, 11, 11 }, 123453252, seq);
-                        }
-
-                        if (seq == 12) {
-                            packet = new PacketInfo(new byte[] { 12, 12, 12, 12 }, 123453252, seq);
-                        }
-                    }
-
-                    System.out.println("REENVIANDO PACOTE QUE FOI PERDIDO - SEQ[" + duplicado + "]");
-
-                    sendPacket(packet);
-
-                    System.out.println("PACOTE QUE HAVIA FALHADO RECEBIDO COM SUCESSO!");
-
-                    // removendo que este pacote da lista de pacotes perdidos
-                    acksDuplicados.remove(seq);
-                }
-            }
-        }
-    }
-
-    // método responsavel por enviar pacotes que tenham falhado pouco antes do
-    // ultimo pacote ser enviado
-    public static String sendLastMissingPackets() throws Exception {
-        PacketResponse newResponse = null;
-
-        List<Integer> packetsLostSeqNumber = acksDuplicados.entrySet().stream()
-                // se ja tiver 1 ou mais acks na lista...
-                .filter(x -> x.getValue() >= 1)
-                // pega a key (seq do pacote perdido)...
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        if (!packetsLostSeqNumber.isEmpty()) {
-
-            // seq aqui é o seq do pacote perdido
-            for (int seq : packetsLostSeqNumber) {
-                PacketInfo packet = packets
-                        .stream()
-                        .filter(x -> x.getSeq() == seq)
-                        .findFirst()
-                        .orElseThrow(() -> new Exception("Nao foi encontrado o pacote que falhou no envio."));
-
-                // PARA UTILIZAR DADOS MOCKADOS, NaO É NECESSARIO PARA EXECUÇaO FINAL
-                if (packet == null) {
-                    if (seq == 1) {
-                        packet = new PacketInfo(new byte[] { 1, 1, 1, 1 }, 123453252, seq);
-                    }
-
-                    if (seq == 2) {
-                        packet = new PacketInfo(new byte[] { 2, 2, 2, 2 }, 123453252, seq);
-                    }
-
-                    if (seq == 3) {
-                        packet = new PacketInfo(new byte[] { 3, 3, 3, 3 }, 123453252, seq);
-                    }
-
-                    if (seq == 4) {
-                        packet = new PacketInfo(new byte[] { 4, 4, 4, 4 }, 123453252, seq);
-                    }
-
-                    if (seq == 5) {
-                        packet = new PacketInfo(new byte[] { 5, 5, 5, 5 }, 123453252, seq);
-                    }
-
-                    if (seq == 6) {
-                        packet = new PacketInfo(new byte[] { 6, 6, 6, 6 }, 123453252, seq);
-                    }
-
-                    if (seq == 7) {
-                        packet = new PacketInfo(new byte[] { 7, 7, 7, 7 }, 123453252, seq);
-                    }
-
-                    if (seq == 8) {
-                        packet = new PacketInfo(new byte[] { 8, 8, 8, 8 }, 123453252, seq);
-                    }
-
-                    if (seq == 9) {
-                        packet = new PacketInfo(new byte[] { 9, 9, 9, 9 }, 123453252, seq);
-                    }
-
-                    if (seq == 10) {
-                        packet = new PacketInfo(new byte[] { 10, 10, 10, 10 }, 123453252, seq);
-                    }
-
-                    if (seq == 11) {
-                        packet = new PacketInfo(new byte[] { 11, 11, 11, 11 }, 123453252, seq);
-                    }
-
-                    if (seq == 12) {
-                        packet = new PacketInfo(new byte[] { 12, 12, 12, 12 }, 123453252, seq);
-                    }
-                }
-
-                System.out.println("REENVIANDO PACOTE QUE FOI PERDIDO - SEQ[" + seq + "]");
-
-                sendPacket(packet);
-
-                newResponse = receivePacket();
-
-                if (!newResponse.getMessage().trim().equals("FINISHED")) {
-                    acksDuplicados.remove(seq);
-                    acksDuplicados.put(newResponse.getSeq(), 3);
-
-                    sendLastMissingPackets();
-                }
-
-                System.out.println("PACOTE QUE HAVIA FALHADO RECEBIDO COM SUCESSO!");
-
-                // removendo que este pacote foi perdido
-                acksDuplicados.remove(seq);
-
-                return newResponse.getMessage();
-            }
-        }
-
-        return "FINISHED";
     }
 
     public static PacketResponse parseResponseMessage(DatagramPacket message) {
