@@ -23,6 +23,7 @@ class Receiver {
 
         while (true) {
 
+            Thread.sleep(50);
             PacketInfo packetInfo = receivePacket();
 
             // tratamento para o ultimo pacote recebido
@@ -180,8 +181,6 @@ class Receiver {
         PacketInfo packetInfo = new PacketInfo();
 
         String[] splitMessage = message.split(Config.MESSAGE_SPLITTER);
-        System.out.println(message);
-        System.out.println(Arrays.toString(splitMessage));
         System.out.println("Recebeu pacote de seq " + Integer.parseInt(splitMessage[2].trim()));
 
         packetInfo.setFileData(formatByteArray(splitMessage[0]));
@@ -200,7 +199,6 @@ class Receiver {
 
     // monta o fileData do PacketInfo
     public static byte[] formatByteArray(String message) {
-        System.out.println(message);
         String initial = message
                 .replace("[", "")
                 .replace("]", "")
@@ -211,7 +209,6 @@ class Receiver {
         byte[] auxArray = new byte[size.length];
 
         for (int i = 0; i < size.length; i++) {
-            System.out.println(size[i]);
             auxArray[i] = Byte.parseByte(size[i]);
         }
 
@@ -239,6 +236,7 @@ class Receiver {
 
         // Percorre os dados recebidos para montar o arquivo completo
         for (int seq = 1; seq <= finalPacketSeqNumber; seq++) {
+            if (!receivedFileData.containsKey(seq)) continue;
             byte[] packetData = receivedFileData.get(seq);
 
             // Verifica se é o último pacote para determinar o tamanho real dos dados

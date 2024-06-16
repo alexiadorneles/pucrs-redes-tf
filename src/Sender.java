@@ -16,7 +16,7 @@ public class Sender {
 
     static final int SLOW_START_MAX_DATA_PACKAGES = 2;
     static final int PACKET_SIZE = 10; // Tamanho dos pacotes em bytes
-    static final int DEBUG_TIMEOUT = 0;
+    static final int DEBUG_TIMEOUT = 1000;
 
     private static String ipAddress;
     private static InetAddress address;
@@ -59,6 +59,7 @@ public class Sender {
     }
 
     public static int initializeSlowStart(int packageLimit) throws Exception {
+        System.out.println();
         int pacotesParaEnviar = 1;
 
         int listIterator = 0;
@@ -110,12 +111,11 @@ public class Sender {
 
             acksReceived = new ArrayList<String>();
 
-            Thread.sleep(DEBUG_TIMEOUT);
             System.out.println("Timeout");
             System.out.println("Reenviando pacote...");
 
+            Thread.sleep(DEBUG_TIMEOUT);
             initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
-
         }
         return listIterator;
     }
@@ -207,7 +207,7 @@ public class Sender {
     }
 
     public static void sendPacket(PacketInfo packet) throws Exception {
-        byte[] fileData = insertRandomError(packet.getFileData(), 0.1, packet.getSeq());
+        byte[] fileData = insertRandomError(packet.getFileData(), 0.15, packet.getSeq());
         String finalFlag = packet.isFinalPacket() ? Config.MESSAGE_SPLITTER
                 + packet.isFinalPacket() : "";
         String message = Arrays.toString(fileData) + Config.MESSAGE_SPLITTER + packet.getCRC() + Config.MESSAGE_SPLITTER
@@ -217,8 +217,8 @@ public class Sender {
         byte[] packetData = message.getBytes();
         DatagramPacket sendPacket = new DatagramPacket(packetData, packetData.length, address, port);
         socket.send(sendPacket);
-        Thread.sleep(DEBUG_TIMEOUT);
         System.out.println("pacote " + packet.getSeq() + " enviado");
+        Thread.sleep(DEBUG_TIMEOUT);
     }
 
     public static PacketResponse receivePacket() throws Exception {
@@ -286,6 +286,8 @@ public class Sender {
     }
 
     public static byte[] insertRandomError(byte[] packetData, double errorProbability, int seq) {
+        if (seq == 1)
+            return packetData;
         // Gerar um número aleatório entre 0 e 1
         double randomValue = Math.random();
         Random random = new Random();
@@ -302,10 +304,9 @@ public class Sender {
             packetData[0] = randomByte;
 
             System.out.println("Erro inserido no pacote de seq: " + seq);
+            System.out.println("Pacote modificado: " + Arrays.toString(packetData));
+            System.out.println();
         }
-
-        System.out.println("Pacote modificado: " + Arrays.toString(packetData));
-        System.out.println();
 
         return packetData;
     }
