@@ -152,7 +152,7 @@ class Receiver {
     /**
      * @param seqReceived sequence number recebido no pacote atual
      * @return 0 se nao há pacotes faltando, senao retorna o sequence number do
-     * pacote faltando
+     *         pacote faltando
      */
     public static int checkMissingPackets(int seqReceived) {
         // pega todos os seqs antes do que chegou agora
@@ -231,55 +231,43 @@ class Receiver {
     }
 
     public static void buildAndValidateFile(int finalPacketSeqNumber) throws Exception {
-        // esse método basicamente só remonta o arquivo e pede ao usuario um caminho
-        // para salvar em disco
+        // Lista auxiliar para armazenar os bytes do arquivo sem o padding
+        List<Byte> fileBytes = new ArrayList<>();
 
-        // remove os delimiters e salva o arquivo no caminho indicado pelo usuario
-        byte[] lastPacketReceived = receivedFileData.get(finalPacketSeqNumber);
+        // Percorre os dados recebidos para montar o arquivo completo
+        for (int seq = 1; seq <= finalPacketSeqNumber; seq++) {
+            byte[] packetData = receivedFileData.get(seq);
 
-        List<Byte> auxList = new ArrayList<>();
+            // Verifica se é o último pacote para determinar o tamanho real dos dados
+            int dataSize = (seq == finalPacketSeqNumber) ? getRealDataSize(packetData) : packetData.length;
 
-        for (int i = 0; i < lastPacketReceived.length; i++) {
-            // 124 é o bytecode para o delimiter setado lá no client envia
-            if (lastPacketReceived[i] != 124) {
-                auxList.add(lastPacketReceived[i]);
+            // Adiciona os dados válidos do pacote à lista
+            for (int i = 0; i < dataSize; i++) {
+                fileBytes.add(packetData[i]);
             }
         }
 
-        byte[] finalArray = new byte[auxList.size()];
-
-        for (int i = 0; i < auxList.size(); i++) {
-            finalArray[i] = auxList.get(i);
+        // Converte a lista de bytes para um array de bytes
+        byte[] allFileBytes = new byte[fileBytes.size()];
+        for (int i = 0; i < fileBytes.size(); i++) {
+            allFileBytes[i] = fileBytes.get(i);
         }
 
-        receivedFileData.put(finalPacketSeqNumber, finalArray);
-
-        int totalByteCount = 0;
-
-        for (byte[] fileData : receivedFileData.values()) {
-            totalByteCount += fileData.length;
-        }
-
-        totalByteCount += (receivedFileData.size() * 2) + 1;
-
-        byte[] allFileBytes = new byte[totalByteCount];
-
-        int copyStopped = 0;
-        int indexStart = 0;
-
-        for (byte[] value : receivedFileData.values()) {
-            for (indexStart = 0; indexStart < value.length; copyStopped++, indexStart++) {
-                allFileBytes[copyStopped] = value[indexStart];
-            }
-        }
-
-        // Remove os bytes nulos do array allFileBytes
-        byte[] nonNullBytes = Arrays.copyOfRange(allFileBytes, 0, copyStopped);
-
+        // Escreve os bytes no arquivo final
         FileOutputStream fileOutputStream = new FileOutputStream(outputFilename);
-        fileOutputStream.write(nonNullBytes);
+        fileOutputStream.write(allFileBytes);
         fileOutputStream.close();
 
-        System.exit(0);
+        System.out.println("Arquivo recebido e salvo com sucesso: " + outputFilename);
+    }
+
+    // Função para obter o tamanho real dos dados no último pacote
+    private static int getRealDataSize(byte[] packetData) {
+        for (int i = packetData.length - 1; i >= 0; i--) {
+            if (packetData[i] != 0) {
+                return i + 1; // Retorna o índice do último byte não nulo + 1
+            }
+        }
+        return 0; // Caso todos os bytes sejam nulos
     }
 }

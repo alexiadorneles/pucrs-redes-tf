@@ -1,10 +1,9 @@
+import java.io.File;
+import java.io.FileInputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,6 +15,7 @@ public class Sender {
 
     static final int SLOW_START_MAX_DATA_PACKAGES = 2;
     static final char FILE_END_DELIMITER_CHAR = '|';
+    static final int PACKET_SIZE = 10; // Tamanho dos pacotes em bytes
 
     private static String ipAddress;
     private static InetAddress address;
@@ -246,62 +246,44 @@ public class Sender {
     }
 
     public static void createPackets() throws Exception {
-        // lê o caminho do arquivo.
-        Path path = Paths.get(filename);
-
-        // monta uma lista com todas as linhas
-        List<String> fileContent = Files.readAllLines(path);
-
         // caso utilizar execuçao em MOCK, colocar esse valor como o proximo seq number
         // a ser enviado.
         int numeroSequencia = 1;
 
-        // coloca na lista de dados de cada packet o que deve ser enviado, em ordem
-        // IMPORTANTE: esse método leva em conta que todas linhas do arquivo possuem 300
-        // bytes (300 caracteres), assim como é visto no case1, dentro da folder input,
-        // comportamentos inesperados podem ocorrer caso essa condiçao nao seja
-        // verdadeira.
-        for (int i = 0; i < fileContent.size(); i++) {
+        File file = new File(filename);
+        FileInputStream fileInputStream = new FileInputStream(file);
 
-            String content = fileContent.get(i);
-            System.out.println(content.toCharArray());
-            final int MAX_BYTES = 300;
+        // Lê o arquivo em bytes
+        byte[] fileBytes = new byte[(int) file.length()];
+        fileInputStream.read(fileBytes);
+        fileInputStream.close();
 
-            if (content.toCharArray().length < MAX_BYTES) {
-                char[] contentBytes = new char[MAX_BYTES];
-                char[] contentChars = content.toCharArray();
+        // Divide o arquivo em pacotes de 10 bytes
+        int offset = 0;
+        long fileSize = file.length();
+        int bytesRead = 0;
 
-                for (int j = 0; j < contentChars.length; j++) {
-                    contentBytes[j] = contentChars[j];
+        while (offset < fileBytes.length) {
+            byte[] packetData = new byte[PACKET_SIZE];
+
+            // Preenche o pacote com dados do arquivo
+            for (int i = 0; i < PACKET_SIZE; i++) {
+                bytesRead++;
+                if (offset < fileBytes.length) {
+                    packetData[i] = fileBytes[offset++];
+                } else {
+                    // Padding no último pacote, se necessário
+                    packetData[i] = 0; // por exemplo, preenche com zero
                 }
-
-                System.out.println(content.toCharArray());
-
-                // Este método adiciona delimiters para os ultimos pacotes que nao tem 300 bytes
-                // terem delimitador
-                for (int j = contentChars.length; j < MAX_BYTES; j++) {
-                    contentBytes[j] = FILE_END_DELIMITER_CHAR;
-                }
-
-                content = new String(contentBytes);
-
             }
-
-            byte[] arrayBytes = content.getBytes();
 
             // realizando calculo do CRC
-            long crc = calculaCRC(arrayBytes);
-
-            PacketInfo packet = new PacketInfo(arrayBytes, crc, numeroSequencia);
-
-            // Aqui definimos o pacote final a ser enviado
-            if (fileContent.size() - 1 == i) {
-                packet.setFinalPacket(true);
-            }
-
+            long crc = calculaCRC(packetData);
+            PacketInfo packet = new PacketInfo(packetData, crc, numeroSequencia);
+            packet.setFinalPacket(bytesRead >= fileSize);
             packets.add(packet);
-
             numeroSequencia++;
         }
+
     }
 }
