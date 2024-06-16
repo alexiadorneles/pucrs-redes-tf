@@ -7,6 +7,7 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.zip.CRC32;
 
 public class Sender {
@@ -14,8 +15,8 @@ public class Sender {
     static List<PacketInfo> packets = new ArrayList<>();
 
     static final int SLOW_START_MAX_DATA_PACKAGES = 2;
-    static final char FILE_END_DELIMITER_CHAR = '|';
     static final int PACKET_SIZE = 10; // Tamanho dos pacotes em bytes
+    static final int DEBUG_TIMEOUT = 0;
 
     private static String ipAddress;
     private static InetAddress address;
@@ -109,6 +110,7 @@ public class Sender {
 
             acksReceived = new ArrayList<String>();
 
+            Thread.sleep(DEBUG_TIMEOUT);
             System.out.println("Timeout");
             System.out.println("Reenviando pacote...");
 
@@ -194,7 +196,7 @@ public class Sender {
     }
 
     public static PacketResponse parseResponseMessage(DatagramPacket message) {
-        String[] split = new String(message.getData()).split("-");
+        String[] split = new String(message.getData()).split(Config.MESSAGE_SPLITTER);
 
         if (split[0].trim().equals("FINISHED")) {
             // nao importa o seq aqui, pq é o ultimo pacote do server
@@ -205,22 +207,18 @@ public class Sender {
     }
 
     public static void sendPacket(PacketInfo packet) throws Exception {
-        String message = "";
-
-        if (packet.isFinalPacket()) {
-            message = Arrays.toString(packet.getFileData()) + "-" + packet.getCRC() + "-" + packet.getSeq() + "-"
-                    + packet.isFinalPacket();
-        } else {
-            message = Arrays.toString(packet.getFileData()) + "-" + packet.getCRC() + "-" + packet.getSeq();
-        }
-
+        byte[] fileData = insertRandomError(packet.getFileData(), 0.1, packet.getSeq());
+        String finalFlag = packet.isFinalPacket() ? Config.MESSAGE_SPLITTER
+                + packet.isFinalPacket() : "";
+        String message = Arrays.toString(fileData) + Config.MESSAGE_SPLITTER + packet.getCRC() + Config.MESSAGE_SPLITTER
+                + packet.getSeq()
+                + finalFlag;
         System.out.println("enviando mensagem: " + message);
-
         byte[] packetData = message.getBytes();
-
         DatagramPacket sendPacket = new DatagramPacket(packetData, packetData.length, address, port);
-
         socket.send(sendPacket);
+        Thread.sleep(DEBUG_TIMEOUT);
+        System.out.println("pacote " + packet.getSeq() + " enviado");
     }
 
     public static PacketResponse receivePacket() throws Exception {
@@ -286,4 +284,30 @@ public class Sender {
         }
 
     }
+
+    public static byte[] insertRandomError(byte[] packetData, double errorProbability, int seq) {
+        // Gerar um número aleatório entre 0 e 1
+        double randomValue = Math.random();
+        Random random = new Random();
+
+        // Verificar se ocorre um erro com base na probabilidade
+        if (randomValue < errorProbability) {
+            // Gerar um byte aleatório entre 0 e 255
+            int randomIntInByte = random.nextInt(127); // Gera um número entre 0 e 255
+
+            // Converter o número para um byte, garantindo que seja positivo
+            byte randomByte = (byte) (randomIntInByte & 0xFF);
+
+            // Simular um erro: por exemplo, modificar o primeiro byte
+            packetData[0] = randomByte;
+
+            System.out.println("Erro inserido no pacote de seq: " + seq);
+        }
+
+        System.out.println("Pacote modificado: " + Arrays.toString(packetData));
+        System.out.println();
+
+        return packetData;
+    }
+
 }

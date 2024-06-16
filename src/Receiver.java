@@ -23,8 +23,6 @@ class Receiver {
 
         while (true) {
 
-            // Thread.sleep(1000);
-
             PacketInfo packetInfo = receivePacket();
 
             // tratamento para o ultimo pacote recebido
@@ -46,7 +44,7 @@ class Receiver {
 
                         // missingPacket contém o seq do pacote perdido
                         // server deve requisitar ele novamente
-                        sendResponsePacket("ACK-" + missingPacket, ipAddress, port);
+                        sendResponsePacket("ACK" + Config.MESSAGE_SPLITTER + missingPacket, ipAddress, port);
 
                         packetInfo = receivePacket();
 
@@ -98,7 +96,7 @@ class Receiver {
             if (!(missingPacket == 0)) {
                 // missingPacket contém o pacote perdido
                 // server deve requisitar ele novamente
-                sendResponsePacket("ACK-" + missingPacket, ipAddress, port);
+                sendResponsePacket("ACK" + Config.MESSAGE_SPLITTER + missingPacket, ipAddress, port);
                 System.out.println("Está no pacote final e há pacotes faltando, requisitando novamente...");
 
                 continue;
@@ -108,7 +106,7 @@ class Receiver {
             packetInfo.setSeq(packetInfo.getSeq() + 1);
             System.out.println("Sucesso, aguardando novos pacotes...");
 
-            sendResponsePacket("ACK-" + packetInfo.getSeq(), ipAddress, port);
+            sendResponsePacket("ACK" + Config.MESSAGE_SPLITTER + packetInfo.getSeq(), ipAddress, port);
 
         }
     }
@@ -181,7 +179,10 @@ class Receiver {
     public static PacketInfo parseInputMessage(String message) {
         PacketInfo packetInfo = new PacketInfo();
 
-        String[] splitMessage = message.split("-");
+        String[] splitMessage = message.split(Config.MESSAGE_SPLITTER);
+        System.out.println(message);
+        System.out.println(Arrays.toString(splitMessage));
+        System.out.println("Recebeu pacote de seq " + Integer.parseInt(splitMessage[2].trim()));
 
         packetInfo.setFileData(formatByteArray(splitMessage[0]));
         packetInfo.setCRC(Long.parseLong(splitMessage[1]));
@@ -199,6 +200,7 @@ class Receiver {
 
     // monta o fileData do PacketInfo
     public static byte[] formatByteArray(String message) {
+        System.out.println(message);
         String initial = message
                 .replace("[", "")
                 .replace("]", "")
@@ -209,6 +211,7 @@ class Receiver {
         byte[] auxArray = new byte[size.length];
 
         for (int i = 0; i < size.length; i++) {
+            System.out.println(size[i]);
             auxArray[i] = Byte.parseByte(size[i]);
         }
 
