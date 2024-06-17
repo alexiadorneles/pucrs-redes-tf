@@ -37,24 +37,23 @@ public class Sender {
         address = InetAddress.getByName(ipAddress);
 
         socket = new DatagramSocket();
-        System.out.println("Iniciou a conexao do sender...");
+        System.out.println("Sender connection started...");
 
         // Definindo timeout pro socket (neste caso é 3 segundos)
         socket.setSoTimeout(3 * 1000);
 
-        System.out.println("\nConexao estabelecida!");
+        System.out.println("\nConnection established!");
 
         createPackets();
 
-        // neste momento, temos todos os pacotes criados, tudo pronto pra enviar para o
-        // server
+        // neste momento, temos todos os pacotes criados, tudo pronto pra enviar para o server
         int listIterator = initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
 
         if (listIterator >= packets.size()) {
-            System.out.println("tudo enviado, nao precisa do avoidance...");
+            System.out.println("All sent, no need for avoidance...");
         } else {
             congestionAvoidance(listIterator);
-            System.out.println("\nConexao encerrada!");
+            System.out.println("\nConnection closed!");
         }
     }
 
@@ -92,7 +91,7 @@ public class Sender {
 
                     PacketResponse response = receivePacket();
 
-                    acksReceived.add("recebe response: " + response.getMessage() + ":" + response.getSeq());
+                    acksReceived.add("Received response: " + response.getMessage() + ":" + response.getSeq());
 
                 }
 
@@ -112,7 +111,7 @@ public class Sender {
             acksReceived = new ArrayList<String>();
 
             System.out.println("Timeout");
-            System.out.println("Reenviando pacote...");
+            System.out.println("Resending packet...");
 
             Thread.sleep(DEBUG_TIMEOUT);
             initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
@@ -122,7 +121,7 @@ public class Sender {
 
     // cria os pacotes e adiciona na lista de pacotes
     public static void congestionAvoidance(int listIterator) throws Exception {
-        System.out.println("Chegou no congestionAvoidance!");
+        System.out.println("Reached congestionAvoidance!");
 
         PacketInfo packetInfo = null;
 
@@ -146,7 +145,7 @@ public class Sender {
 
                     sendPacket(packetInfo);
                     response = receivePacket();
-                    acksReceived.add("recebe response: " + response.getMessage() + ":" + response.getSeq());
+                    acksReceived.add("Received response: " + response.getMessage() + ":" + response.getSeq());
 
                     listIterator++;
                 }
@@ -188,7 +187,7 @@ public class Sender {
             acksReceived = new ArrayList<String>();
 
             System.out.println("Timeout");
-            System.out.println("Reenviando pacote...");
+            System.out.println("Resending packet...");
 
             initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
 
@@ -213,11 +212,11 @@ public class Sender {
         String message = Arrays.toString(fileData) + Config.MESSAGE_SPLITTER + packet.getCRC() + Config.MESSAGE_SPLITTER
                 + packet.getSeq()
                 + finalFlag;
-        System.out.println("enviando mensagem: " + message);
+        System.out.println("Sending message: " + message);
         byte[] packetData = message.getBytes();
         DatagramPacket sendPacket = new DatagramPacket(packetData, packetData.length, address, port);
         socket.send(sendPacket);
-        System.out.println("pacote " + packet.getSeq() + " enviado");
+        System.out.println("Packet " + packet.getSeq() + " sent");
         Thread.sleep(DEBUG_TIMEOUT);
     }
 
@@ -303,8 +302,8 @@ public class Sender {
             // Simular um erro: por exemplo, modificar o primeiro byte
             packetData[0] = randomByte;
 
-            System.out.println("Erro inserido no pacote de seq: " + seq);
-            System.out.println("Pacote modificado: " + Arrays.toString(packetData));
+            System.out.println("Error inserted in packet with seq: " + seq);
+            System.out.println("Modified packet: " + Arrays.toString(packetData));
             System.out.println();
         }
 
