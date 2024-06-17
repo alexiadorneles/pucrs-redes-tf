@@ -19,34 +19,34 @@ public class Sender {
     static final int DEBUG_TIMEOUT = 1000;
 
     private static String ipAddress;
-    private static InetAddress address;
+    private static InetAddress inetAddress;
     private static int port;
-    private static String filename;
+    private static String fileName;
 
-    static DatagramSocket socket;
+    static DatagramSocket datagramSocket;
 
     public static void main(String[] args) throws Exception {
         ipAddress = "127.0.0.1"; // Endereço IP do destinatário
         port = 9876; // Porta utilizada na comunicaçao
-        filename = "file.txt"; // Nome do arquivo a ser transferido
+        fileName = "file.txt"; // Nome do arquivo a ser transferido
 
         startConnection();
     }
 
     public static void startConnection() throws Exception {
-        address = InetAddress.getByName(ipAddress);
+        inetAddress = InetAddress.getByName(ipAddress);
 
-        socket = new DatagramSocket();
+        datagramSocket = new DatagramSocket();
         System.out.println("Sender connection started...");
 
-        // Definindo timeout pro socket (neste caso é 3 segundos)
-        socket.setSoTimeout(3 * 1000);
+        // Define o timeout para o socket (3 segundos neste caso)
+        datagramSocket.setSoTimeout(3 * 1000);
 
         System.out.println("\nConnection established!");
 
         createPackets();
 
-        // neste momento, temos todos os pacotes criados, tudo pronto pra enviar para o server
+        // Neste ponto, todos os pacotes estão criados e prontos para envio ao servidor
         int listIterator = initializeSlowStart(SLOW_START_MAX_DATA_PACKAGES);
 
         if (listIterator >= packets.size()) {
@@ -59,16 +59,16 @@ public class Sender {
 
     public static int initializeSlowStart(int packageLimit) throws Exception {
         System.out.println();
-        int pacotesParaEnviar = 1;
+        int packetsToSend = 1;
 
         int listIterator = 0;
 
         int actualPackageLimit = 1;
-        int packetCalculo = 1;
+        int packetCalculation = 1;
 
-        // calcula o limite de pacotes que pode enviar
-        while (packetCalculo != packageLimit) {
-            packetCalculo *= 2;
+        // Calcula o número máximo de pacotes que podem ser enviados
+        while (packetCalculation != packageLimit) {
+            packetCalculation *= 2;
             actualPackageLimit = actualPackageLimit * 2 + 1;
         }
 
@@ -76,14 +76,14 @@ public class Sender {
 
         PacketInfo info;
 
-        // envia os pacotes
+        // Envia os pacotes
         try {
-            while (pacotesParaEnviar <= actualPackageLimit) {
-                for (listIterator = listIterator; listIterator < pacotesParaEnviar; listIterator++) {
+            while (packetsToSend <= actualPackageLimit) {
+                for (listIterator = listIterator; listIterator < packetsToSend; listIterator++) {
                     try {
                         info = packets.get(listIterator);
                     } catch (Exception ex) {
-                        // acabou de iterar, enviou tudo
+                        // Terminou a iteração, todos os pacotes foram enviados
                         break;
                     }
 
@@ -101,7 +101,7 @@ public class Sender {
 
                 acksReceived = new ArrayList<String>();
 
-                pacotesParaEnviar = pacotesParaEnviar * 2 + 1;
+                packetsToSend = packetsToSend * 2 + 1;
             }
         } catch (SocketTimeoutException ex) {
             for (int i = 0; i < acksReceived.size(); i++) {
@@ -119,7 +119,7 @@ public class Sender {
         return listIterator;
     }
 
-    // cria os pacotes e adiciona na lista de pacotes
+    // Faz a criação dos pacotes e os adiciona à lista de pacotes
     public static void congestionAvoidance(int listIterator) throws Exception {
         System.out.println("Reached congestionAvoidance!");
 
@@ -139,7 +139,7 @@ public class Sender {
                     try {
                         packetInfo = packets.get(listIterator);
                     } catch (Exception ex) {
-                        // acabou de iterar, enviou tudo
+                        // Terminou a iteração, todos os pacotes foram enviados
                         break;
                     }
 
@@ -160,19 +160,16 @@ public class Sender {
             }
 
             /*
-             * Desconfio que isso não seja necessário pro nosso trabalho, comentando pra
-             * checar depois
+             * Suspeito que isso não seja necessário para o nosso trabalho, comentando para verificar depois
              */
             /*
-             * mas a lógica dependia de ACKs duplicados, que não está no nosso escopo de
-             * trabalho
+             * A lógica dependia de ACKs duplicados, que não está no nosso escopo de trabalho
              */
             // String finalServerResponse = response.getMessage().trim();
 
             // if (packetInfo.isFinalPacket()) {
             // while (!finalServerResponse.equals("FINISHED")) {
-            // System.out.println("Pacotes faltando, entrando em contato com o servidor para
-            // verificar...");
+            // System.out.println("Pacotes faltando, entrando em contato com o servidor para verificar...");
 
             // finalServerResponse = sendLastMissingPackets();
             // }
@@ -198,7 +195,7 @@ public class Sender {
         String[] split = new String(message.getData()).split(Config.MESSAGE_SPLITTER);
 
         if (split[0].trim().equals("FINISHED")) {
-            // nao importa o seq aqui, pq é o ultimo pacote do server
+            // Não importa a sequência aqui, pois é o último pacote do servidor
             return new PacketResponse(split[0], 1);
         }
 
@@ -214,8 +211,8 @@ public class Sender {
                 + finalFlag;
         System.out.println("Sending message: " + message);
         byte[] packetData = message.getBytes();
-        DatagramPacket sendPacket = new DatagramPacket(packetData, packetData.length, address, port);
-        socket.send(sendPacket);
+        DatagramPacket sendPacket = new DatagramPacket(packetData, packetData.length, inetAddress, port);
+        datagramSocket.send(sendPacket);
         System.out.println("Packet " + packet.getSeq() + " sent");
         Thread.sleep(DEBUG_TIMEOUT);
     }
@@ -223,31 +220,30 @@ public class Sender {
     public static PacketResponse receivePacket() throws Exception {
         byte[] responseData = new byte[1024];
 
-        DatagramPacket receivePacket = new DatagramPacket(responseData, responseData.length, address, port);
+        DatagramPacket receivePacket = new DatagramPacket(responseData, responseData.length, inetAddress, port);
 
-        socket.receive(receivePacket);
+        datagramSocket.receive(receivePacket);
 
         PacketResponse response = parseResponseMessage(receivePacket);
 
         return response;
     }
 
-    public static long calculaCRC(byte[] array) {
+    public static long calculateCRC(byte[] array) {
         CRC32 crc = new CRC32();
 
         crc.update(array);
 
-        long valor = crc.getValue();
+        long value = crc.getValue();
 
-        return valor;
+        return value;
     }
 
     public static void createPackets() throws Exception {
-        // caso utilizar execuçao em MOCK, colocar esse valor como o proximo seq number
-        // a ser enviado.
-        int numeroSequencia = 1;
+        // Se estiver usando execução MOCK, defina este valor como o próximo número de sequência a ser enviado.
+        int sequenceNumber = 1;
 
-        File file = new File(filename);
+        File file = new File(fileName);
         FileInputStream fileInputStream = new FileInputStream(file);
 
         // Lê o arquivo em bytes
@@ -269,17 +265,17 @@ public class Sender {
                 if (offset < fileBytes.length) {
                     packetData[i] = fileBytes[offset++];
                 } else {
-                    // Padding no último pacote, se necessário
+                    // Preenchimento no último pacote, se necessário
                     packetData[i] = 0; // por exemplo, preenche com zero
                 }
             }
 
-            // realizando calculo do CRC
-            long crc = calculaCRC(packetData);
-            PacketInfo packet = new PacketInfo(packetData, crc, numeroSequencia);
+            // Calcula o CRC
+            long crc = calculateCRC(packetData);
+            PacketInfo packet = new PacketInfo(packetData, crc, sequenceNumber);
             packet.setFinalPacket(bytesRead >= fileSize);
             packets.add(packet);
-            numeroSequencia++;
+            sequenceNumber++;
         }
 
     }
@@ -287,19 +283,19 @@ public class Sender {
     public static byte[] insertRandomError(byte[] packetData, double errorProbability, int seq) {
         if (seq == 1)
             return packetData;
-        // Gerar um número aleatório entre 0 e 1
+        // Gera um número aleatório entre 0 e 1
         double randomValue = Math.random();
         Random random = new Random();
 
-        // Verificar se ocorre um erro com base na probabilidade
+        // Verifica se ocorre um erro com base na probabilidade
         if (randomValue < errorProbability) {
-            // Gerar um byte aleatório entre 0 e 255
+            // Gera um byte aleatório entre 0 e 255
             int randomIntInByte = random.nextInt(127); // Gera um número entre 0 e 255
 
-            // Converter o número para um byte, garantindo que seja positivo
+            // Converte o número para um byte, garantindo que seja positivo
             byte randomByte = (byte) (randomIntInByte & 0xFF);
 
-            // Simular um erro: por exemplo, modificar o primeiro byte
+            // Simula um erro: por exemplo, modifica o primeiro byte
             packetData[0] = randomByte;
 
             System.out.println("Error inserted in packet with seq: " + seq);
