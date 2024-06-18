@@ -159,22 +159,6 @@ public class Sender {
                 quantPacketSend++;
             }
 
-            /*
-             * Suspeito que isso não seja necessário para o nosso trabalho, comentando para verificar depois
-             */
-            /*
-             * A lógica dependia de ACKs duplicados, que não está no nosso escopo de trabalho
-             */
-            // String finalServerResponse = response.getMessage().trim();
-
-            // if (packetInfo.isFinalPacket()) {
-            // while (!finalServerResponse.equals("FINISHED")) {
-            // System.out.println("Pacotes faltando, entrando em contato com o servidor para verificar...");
-
-            // finalServerResponse = sendLastMissingPackets();
-            // }
-            // }
-
         } catch (SocketTimeoutException ex) {
 
             for (int i = 0; i < acksReceived.size(); i++) {
