@@ -21,7 +21,7 @@ public class Sender {
 
     public static void main(String[] args) throws Exception {
         port = 9876; // Porta utilizada na comunicaçao
-        fileName = "file.txt"; // Nome do arquivo a ser transferido
+        fileName = args.length > 0 ? args[0] : "file.txt"; // Nome do arquivo a ser transferido
         startConnection();
     }
 
@@ -226,7 +226,6 @@ public class Sender {
             byte randomByte = (byte) (randomIntInByte & 0xFF);
             packetData[0] = randomByte;
             System.out.println("Error inserted in packet with seq: " + seq);
-            System.out.println();
         }
         return packetData;
     }
