@@ -16,6 +16,7 @@ public class Sender {
     private static InetAddress inetAddress;
     private static int port;
     private static String fileName;
+    private static int iterator = 0;
 
     static DatagramSocket datagramSocket;
 
@@ -46,7 +47,6 @@ public class Sender {
     public static int initializeSlowStart(int packageLimit) throws Exception {
         System.out.println();
         int packetsToSend = 1;
-        int iterator = 0;
         int actualPackageLimit = 1;
         int packetCalculation = 1;
 
@@ -56,7 +56,7 @@ public class Sender {
             actualPackageLimit = actualPackageLimit * 2 + 1;
         }
 
-        List<String> acksReceived = new ArrayList<String>();
+        List<Integer> acksReceived = new ArrayList<Integer>();
 
         PacketInfo info;
 
@@ -73,26 +73,28 @@ public class Sender {
 
                     sendPacket(info);
                     PacketResponse response = receivePacket();
-                    acksReceived.add("Received response: " + response.getMessage() + ":" + response.getSeq());
+                    acksReceived.add(response.getSeq());
                 }
 
                 for (int i = 0; i < acksReceived.size(); i++) {
-                    System.out.println(acksReceived.get(i));
+                    System.out.println("ACK: " + acksReceived.get(i));
                 }
 
-                acksReceived = new ArrayList<String>();
+                acksReceived = new ArrayList<Integer>();
                 packetsToSend = packetsToSend * 2 + 1;
             }
         } catch (SocketTimeoutException ex) {
-            for (int i = 0; i < acksReceived.size(); i++) {
-                System.out.println(acksReceived.get(i));
-            }
-
-            acksReceived = new ArrayList<String>();
 
             System.out.println("Timeout");
             System.out.println("Resending packet...");
 
+            for (int i = 0; i < acksReceived.size(); i++) {
+                System.out.println("ACK: " + acksReceived.get(i));
+            }
+
+            int missingSeq = acksReceived.get(acksReceived.size() - 1);
+            PacketInfo missing = packets.stream().filter(p -> p.getSeq() == missingSeq).findFirst().orElse(null);
+            iterator = packets.indexOf(missing);
             Thread.sleep(Config.DEBUG_TIMEOUT);
             initializeSlowStart(Config.SLOW_START_MAX_DATA_PACKAGES);
         }
@@ -105,7 +107,7 @@ public class Sender {
 
         PacketInfo packetInfo = null;
         PacketResponse response = null;
-        List<String> acksReceived = new ArrayList<String>();
+        List<Integer> acksReceived = new ArrayList<Integer>();
         int quantPacketSend = Config.SLOW_START_MAX_DATA_PACKAGES + 1;
 
         try {
@@ -120,7 +122,7 @@ public class Sender {
 
                     sendPacket(packetInfo);
                     response = receivePacket();
-                    acksReceived.add("Received response: " + response.getMessage() + ":" + response.getSeq());
+                    acksReceived.add(response.getSeq());
                     iterator++;
                 }
 
@@ -128,16 +130,16 @@ public class Sender {
                     System.out.println(acksReceived.get(i));
                 }
 
-                acksReceived = new ArrayList<String>();
+                acksReceived = new ArrayList<Integer>();
                 quantPacketSend++;
             }
 
         } catch (SocketTimeoutException ex) {
             for (int i = 0; i < acksReceived.size(); i++) {
-                System.out.println(acksReceived.get(i));
+                System.out.println("ACK : " + acksReceived.get(i));
             }
 
-            acksReceived = new ArrayList<String>();
+            acksReceived = new ArrayList<Integer>();
             System.out.println("\nTimeout");
             System.out.println("Resending packet...\n");
             initializeSlowStart(Config.SLOW_START_MAX_DATA_PACKAGES);
@@ -155,7 +157,7 @@ public class Sender {
     }
 
     public static void sendPacket(PacketInfo packet) throws Exception {
-        byte[] fileData = insertRandomError(packet.getFileData(), 0.15, packet.getSeq());
+        byte[] fileData = insertRandomError(packet.getFileData().clone(), 0.1, packet.getSeq());
         String finalFlag = packet.isFinalPacket() ? Config.MESSAGE_SPLITTER
                 + packet.isFinalPacket() : "";
         String message = Arrays.toString(fileData) + Config.MESSAGE_SPLITTER + packet.getCRC() + Config.MESSAGE_SPLITTER
