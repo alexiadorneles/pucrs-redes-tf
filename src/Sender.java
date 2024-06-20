@@ -219,7 +219,7 @@ public class Sender {
     }
 
     public static byte[] insertRandomError(byte[] packetData, double errorProbability, int seq) {
-        if (seq == 1)
+        if (seq >= 3 && seq <= 15)
             return packetData;
         double randomValue = Math.random();
         Random random = new Random();
