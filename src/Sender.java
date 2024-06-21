@@ -94,9 +94,9 @@ public class Sender {
                 System.out.println("ACK: " + acksReceived.get(i));
             }
 
-            int missingSeq = acksReceived.get(acksReceived.size() - 1);
+            int missingSeq = acksReceived.size() < 1 ? 0 : acksReceived.get(acksReceived.size() - 1);
             PacketInfo missing = packets.stream().filter(p -> p.getSeq() == missingSeq).findFirst().orElse(null);
-            iterator = packets.indexOf(missing);
+            iterator = missing == null ? 0 : packets.indexOf(missing);
             Thread.sleep(Config.DEBUG_TIMEOUT);
             initializeSlowStart(Config.SLOW_START_MAX_DATA_PACKAGES);
         }
@@ -159,7 +159,7 @@ public class Sender {
     }
 
     public static void sendPacket(PacketInfo packet) throws Exception {
-        byte[] fileData = insertRandomError(packet.getFileData().clone(), 0.1, packet.getSeq());
+        byte[] fileData = insertRandomError(packet.getFileData().clone(), 0.2, packet.getSeq());
         String finalFlag = packet.isFinalPacket() ? Config.MESSAGE_SPLITTER
                 + packet.isFinalPacket() : "";
         String message = Arrays.toString(fileData) + Config.MESSAGE_SPLITTER + packet.getCRC() + Config.MESSAGE_SPLITTER
@@ -221,8 +221,9 @@ public class Sender {
     }
 
     public static byte[] insertRandomError(byte[] packetData, double errorProbability, int seq) {
-        if (seq >= 3 && seq <= 15)
+        if (seq >= 3 && seq <= 15) {
             return packetData;
+        }
         double randomValue = Math.random();
         Random random = new Random();
         if (randomValue < errorProbability) {
