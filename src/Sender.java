@@ -42,6 +42,9 @@ public class Sender {
             congestionAvoidance(listIterator);
             if (listIterator >= packets.size()) {
                 System.out.println("\nConnection closed!");
+            } else {
+                while (true) {
+                }
             }
         }
     }
@@ -137,15 +140,18 @@ public class Sender {
             }
 
         } catch (SocketTimeoutException ex) {
+            System.out.println("Timeout");
+            System.out.println("Resending packet...");
+
             for (int i = 0; i < acksReceived.size(); i++) {
-                System.out.println("ACK : " + acksReceived.get(i));
+                System.out.println("ACK: " + acksReceived.get(i));
             }
 
-            acksReceived = new ArrayList<Integer>();
-            System.out.println("\nTimeout");
-            System.out.println("Resending packet...\n");
+            int missingSeq = acksReceived.size() < 1 ? 0 : acksReceived.get(acksReceived.size() - 1);
+            PacketInfo missing = packets.stream().filter(p -> p.getSeq() == missingSeq).findFirst().orElse(null);
+            iterator = missing == null ? 0 : packets.indexOf(missing);
+            Thread.sleep(Config.DEBUG_TIMEOUT);
             initializeSlowStart(Config.SLOW_START_MAX_DATA_PACKAGES);
-
         }
     }
 
@@ -153,6 +159,8 @@ public class Sender {
         String[] split = new String(message.getData()).split(Config.MESSAGE_SPLITTER);
         if (split[0].trim().equals(Config.FINISHED)) {
             // Não importa a sequência aqui, pois é o último pacote do servidor
+            System.out.println("Closing connection...");
+            System.exit(0);
             return new PacketResponse(split[0], 1);
         }
         return new PacketResponse(split[0], Integer.parseInt(split[1].trim()));
