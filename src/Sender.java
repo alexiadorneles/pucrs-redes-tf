@@ -40,7 +40,9 @@ public class Sender {
             System.out.println("All sent, no need for avoidance...");
         } else {
             congestionAvoidance(listIterator);
-            System.out.println("\nConnection closed!");
+            if (listIterator >= packets.size()) {
+                System.out.println("\nConnection closed!");
+            }
         }
     }
 
@@ -127,7 +129,7 @@ public class Sender {
                 }
 
                 for (int i = 0; i < acksReceived.size(); i++) {
-                    System.out.println(acksReceived.get(i));
+                    System.out.println("ACK: " + acksReceived.get(i));
                 }
 
                 acksReceived = new ArrayList<Integer>();
